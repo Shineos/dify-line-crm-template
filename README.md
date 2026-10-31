@@ -1,7 +1,5 @@
 # LINE セグメント配信（CRM）— Dify ワークフローテンプレート
 
-**GitHubリポジトリ**: https://github.com/shineos/dify-line-crm-template
-
 Googleスプレッドシートを顧客台帳にして、**セグメントごとに違う頻度・違う文面**でLINEメッセージを自動配信するDifyワークフローテンプレートです。LLM不使用のテンプレート埋め込み方式なので、文面がブレず追加コストもゼロ。**文面・セグメント・頻度・Discordレポートの文言まで、すべてスプレッドシート編集だけで運用**できます。
 
 - 対象プラグイン: **LINE Message Sender (shineos)** ＋ **google_sheets (omluc)** — インポート時に自動インストールされます
