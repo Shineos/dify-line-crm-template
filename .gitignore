@@ -1,0 +1,23 @@
+# 機密情報（絶対に公開しない）
+.env.local
+.secrets/
+real_uid.tmp
+
+# 内部資料（公開リポジトリには含めない）
+DESIGN.md
+verify_on_dify.py
+publish/
+
+# 一時ファイル・社内検証用の成果物
+*.tmp
+import_pending.tmp
+missing_deps.tmp
+credential-test.yml
+roster-test.yml
+
+# 生成物・キャッシュ
+__pycache__/
+*.pyc
+.pytest_cache/
+.mimosa/
+.DS_Store

@@ -1,0 +1,4 @@
+segment,template_text,enabled
+vip,【先行案内】{display_name}、いつもご利用ありがとうございます。{context}の新作をVIPのお客様に先にお知らせします。,TRUE
+active,{display_name}、今週のおすすめ情報をお届けします。{context},TRUE
+dormant,{display_name}様、お久しぶりです。最近の新商品をまとめました。ぜひご覧ください。,TRUE

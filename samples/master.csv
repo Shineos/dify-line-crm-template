@@ -1,0 +1,4 @@
+user_id,display_name,segment,frequency,context,memo
+Udemo0000000000000000000000000001,田中 太郎,vip,7,先月ご購入のA商品,デモ用（実際のLINE IDに置換してください）
+Udemo0000000000000000000000000002,佐藤 花子,active,30,,デモ用
+Udemo0000000000000000000000000003,鈴木 一郎,dormant,90,半年ぶりのご連絡,デモ用

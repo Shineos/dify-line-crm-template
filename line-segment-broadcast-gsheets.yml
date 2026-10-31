@@ -1,0 +1,1555 @@
+app:
+  description: Googleスプレッドシート（google_sheetsプラグイン・サービスアカウント認証）の顧客リストから、セグメント別の頻度・文面でLINEメッセージを自動配信するCRM型ワークフロー（shineos）
+  icon: 📊
+  icon_type: emoji
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: LINEセグメント配信（CRM・Sheetsプラグイン版）
+  use_icon_as_answer_icon: false
+kind: app
+version: "0.6.0"
+dependencies:
+  - type: marketplace
+    value:
+      marketplace_plugin_unique_identifier: 'omluc/google_sheets:0.0.2@17f06eaa1d905595e1a76460e7249707a722142353d551cf14aed3d8517c134f'
+  - type: marketplace
+    value:
+      marketplace_plugin_unique_identifier: 'shineos/line-message-sender:0.2.0@9c092a784ae4882ea0f952f98cd818cfb638950ccc368357c6380932d0d4ddb8'
+workflow:
+  conversation_variables: []
+  environment_variables:
+    - description: 顧客管理スプレッドシートのID（URLの /d/ と /edit の間）
+      id: 3b2c9f7a-0001-4c11-9a51-000000000001
+      name: SPREADSHEET_ID
+      selector:
+        - env
+        - SPREADSHEET_ID
+      value: ''
+      value_type: string
+    - description: '（任意）管理レポートのLINE宛先（U.../C...）。未設定ならLINE通知をスキップ'
+      id: 3b2c9f7a-0001-4c11-9a51-000000000002
+      name: ADMIN_LINE_ID
+      selector:
+        - env
+        - ADMIN_LINE_ID
+      value: ''
+      value_type: string
+    - description: '（任意）管理レポートのDiscord Webhook URL。未設定ならDiscord通知をスキップ'
+      id: 3b2c9f7a-0001-4c11-9a51-000000000003
+      name: DISCORD_WEBHOOK_URL
+      selector:
+        - env
+        - DISCORD_WEBHOOK_URL
+      value: ''
+      value_type: secret
+  features:
+    file_upload:
+      enabled: false
+  graph:
+    nodes:
+
+      - id: note-setup
+        type: custom-note
+        data:
+          type: custom-note
+          title: ''
+          text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"【セットアップ手順】","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"1. プラグイン2件の認可（インポート時に自動DL）","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"   ・LINE Message Sender → チャネルアクセストークン","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"   ・google_sheets → サービスアカウントJSON","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"     ※シートをSAのメールに「編集者」共有","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"2. 環境変数を設定","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"   ・SPREADSHEET_ID（必須）","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"   ・ADMIN_LINE_ID / DISCORD_WEBHOOK_URL（任意）","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"3. シートに master / campaign / history の3タブ","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"詳細はテンプレートのREADMEを参照","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"詳細はREADMEを参照: https://github.com/shineos/dify-line-crm-template#readme","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}'
+          theme: blue
+          author: ''
+          showAuthor: false
+          width: 360
+          height: 240
+          selected: false
+        position:
+          x: 80
+          y: 30
+        positionAbsolute:
+          x: 80
+          y: 30
+        width: 360
+        height: 240
+        selected: false
+      - id: note-sheets
+        type: custom-note
+        data:
+          type: custom-note
+          title: ''
+          text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"【シートの役割】","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・master: 顧客リスト（UID・セグメント・頻度・個別文脈）","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・campaign: セグメント別文面テンプレート","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"   {display_name} {context} が置換されます","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・history: 送信結果の自動記録（編集不要）","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・settings: Discordカードの文言（任意。無くても動作）","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"文面変更・顧客追加はシート編集だけで反映されます","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}'
+          theme: green
+          author: ''
+          showAuthor: false
+          width: 380
+          height: 180
+          selected: false
+        position:
+          x: 500
+          y: 30
+        positionAbsolute:
+          x: 500
+          y: 30
+        width: 380
+        height: 180
+        selected: false
+      - id: note-send
+        type: custom-note
+        data:
+          type: custom-note
+          title: ''
+          text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"【送信仕様】","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・重複除外は「UID×セグメント」単位","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"   同じ人に別セグメントの文面を届けられます","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・1回あたり最大100件（超過分は翌回へ繰越）","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・1件失敗しても継続。failed記録し次回自動リトライ","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・初回実行は dry_run=true を推奨（送信ゼロで計画確認）","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}'
+          theme: yellow
+          author: ''
+          showAuthor: false
+          width: 380
+          height: 190
+          selected: false
+        position:
+          x: 1040
+          y: 30
+        positionAbsolute:
+          x: 1040
+          y: 30
+        width: 380
+        height: 190
+        selected: false
+      - id: note-report
+        type: custom-note
+        data:
+          type: custom-note
+          title: ''
+          text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"【レポートと履歴】","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・Discord: 結果を集計した1枚カード","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"   緑=全成功 / オレンジ=失敗あり / 青=dry-run","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"   （未設定なら通知をスキップ）","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・ADMIN_LINE_ID宛のLINE報告も可能（任意）","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"・頻度制御: 前回成功からfrequency日経過後に再送","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1},{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}'
+          theme: violet
+          author: ''
+          showAuthor: false
+          width: 380
+          height: 190
+          selected: false
+        position:
+          x: 1520
+          y: 30
+        positionAbsolute:
+          x: 1520
+          y: 30
+        width: 380
+        height: 190
+        selected: false
+      - id: start
+        type: custom
+        data:
+          type: start
+          title: 開始
+          desc: ''
+          selected: false
+          variables:
+            - label: 対象セグメント（空=全セグメント）
+              variable: segment_filter
+              type: text-input
+              required: false
+              max_length: 50
+            - label: ドライラン（送信せず計画のみ表示）
+              variable: dry_run
+              type: checkbox
+              required: false
+              default: true
+        position:
+          x: 80
+          y: 280
+        positionAbsolute:
+          x: 80
+          y: 280
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 120
+        selected: false
+      - id: tool_sheets_get
+        type: custom
+        data:
+          type: tool
+          title: シート読み取り
+          desc: master/campaign/history の3範囲を一括取得
+          selected: false
+          provider_id: omluc/google_sheets/google_sheets
+          provider_name: omluc/google_sheets/google_sheets
+          provider_type: builtin
+          plugin_unique_identifier: 'omluc/google_sheets:0.0.2@17f06eaa1d905595e1a76460e7249707a722142353d551cf14aed3d8517c134f' 
+          tool_name: batch_get
+          tool_label: Batch Get
+          tool_description: Efficiently retrieve data from multiple ranges within a Google Sheet.
+          tool_parameters:
+            spreadsheet_id:
+              type: mixed
+              value: '{{#env.SPREADSHEET_ID#}}'
+            ranges:
+              type: mixed
+              value: '["master!A2:F", "campaign!A2:C", "history!A2:F", "settings!A2:B"]'
+          tool_configurations: {}
+          tool_node_version: '2'
+          plugin_id: omluc/google_sheets
+          is_team_authorization: true
+          paramSchemas:
+            - auto_generate: false
+              form: llm
+              human_description:
+                en_US: The ID of the Google Sheet (found in the URL)
+                ja_JP: GoogleシートのID（URLに含まれる）
+              label:
+                en_US: Spreadsheet ID
+                ja_JP: スプレッドシートID
+              llm_description: The ID of the Google Sheet (found in the URL)
+              max: null
+              min: null
+              name: spreadsheet_id
+              options: []
+              placeholder: null
+              required: true
+              type: string
+            - auto_generate: false
+              form: llm
+              human_description:
+                en_US: List of ranges to retrieve (e.g. ["Sheet1!A1:C3", "Sheet2!B2:D4"])
+                ja_JP: 取得する範囲のリスト
+              label:
+                en_US: Ranges
+                ja_JP: 範囲
+              llm_description: List of ranges to retrieve.
+              max: null
+              min: null
+              name: ranges
+              options: []
+              placeholder: null
+              required: true
+              type: string
+          output_schema: null
+          params: {}
+        position:
+          x: 400
+          y: 280
+        positionAbsolute:
+          x: 400
+          y: 280
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 116
+        selected: false
+      - id: tool_botinfo
+        type: custom
+        data:
+          type: tool
+          title: ボット情報取得
+          desc: ボット自身のIDを取得し、宛先誤り（ボット宛）を検出する
+          selected: false
+          provider_id: shineos/line-message-sender/line-message-sender
+          provider_name: shineos/line-message-sender/line-message-sender
+          provider_type: builtin
+          plugin_id: shineos/line-message-sender
+          plugin_unique_identifier: 'shineos/line-message-sender:0.2.0@9c092a784ae4882ea0f952f98cd818cfb638950ccc368357c6380932d0d4ddb8'
+          is_team_authorization: true
+          tool_name: get_bot_info
+          tool_label: Get Bot Info
+          tool_description: Fetch the LINE Official Account information.
+          tool_parameters: { }
+          tool_configurations: { }
+          tool_node_version: '2'
+          paramSchemas: [ ]
+          output_schema: null
+          params: { }
+        position:
+          x: 560
+          y: 280
+        positionAbsolute:
+          x: 560
+          y: 280
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 116
+        selected: false
+      - id: code_plan
+        type: custom
+        data:
+          type: code
+          title: 対象者抽出と文面生成
+          desc: セグメント・頻度・履歴から送信対象を決め、テンプレートに顧客情報を埋め込む
+          selected: false
+          code_language: python3
+          code: |
+            """Codeノード「対象者抽出と文面生成」（google_sheetsプラグイン版）の正本ロジック.
+
+            入力（Difyのvariables）:
+                sheets_raw     : google_sheets バッチ_get ツールの出力（JSON）
+                segment_filter : 開始ノードの入力（空なら全セグメント）
+                dry_run        : 開始ノードの入力（Trueなら送信タスクを空にする）
+            出力:
+                planned / send_tasks / planned_count / overflow_count /
+                skipped_recent / skipped_no_template / history_data_rows / plan_summary
+
+            batch_get の応答形式（Sheets API準拠を想定し、文字列ラップにも耐える）:
+                {"spreadsheetId": "...", "valueRanges": [
+                    {"range": "master!A2:F6",   "values": [[...], ...]},
+                    {"range": "campaign!A2:C5", "values": [[...], ...]},
+                    {"range": "history!A2:F99", "values": [[...], ...]},
+                    {"range": "settings!A2:B99", "values": [[key, value], ...]},  # 任意タブ
+                ]}
+            """
+
+            import json
+            from datetime import datetime, timedelta, timezone
+
+            JST = timezone(timedelta(hours=9))
+            MAX_SEND_PER_RUN = 100
+            DEFAULT_FREQ_DAYS = 30
+            DEFAULT_NAME = "お客様"
+
+
+            def as_dict(value):
+                """ツール出力をdictへ正規化する（リスト包み・JSON文字列にも耐える）."""
+                if isinstance(value, dict):
+                    return value
+                if isinstance(value, list) and value and isinstance(value[0], dict):
+                    return value[0]
+                if isinstance(value, str):
+                    stripped = value.strip()
+                    if stripped.startswith("{") or stripped.startswith("["):
+                        try:
+                            return as_dict(json.loads(stripped))
+                        except Exception:
+                            return {}
+                return {}
+
+
+            def cell(row, index):
+                if not isinstance(row, list) or index >= len(row):
+                    return ""
+                value = row[index]
+                return "" if value is None else str(value).strip()
+
+
+            def split_value_ranges(sheets_raw):
+                """batch_get応答をタブ名ごとの行配列に分解する（範囲名のパターンに耐える）."""
+                payload = as_dict(sheets_raw)
+
+                # プラグインがJSON文字列でラップして返す場合に備えて一段復号
+                for key in ("content", "result", "text", "data"):
+                    inner = payload.get(key)
+                    if isinstance(inner, str) and inner.strip().startswith("{"):
+                        parsed = as_dict(inner)
+                        if parsed:
+                            payload = parsed
+                        break
+
+                result = {"master": [], "campaign": [], "history": [], "settings": []}
+                ranges = payload.get("valueRanges")
+                if not isinstance(ranges, list):
+                    return result
+
+                for item in ranges:
+                    if not isinstance(item, dict):
+                        continue
+                    values = item.get("values")
+                    values = values if isinstance(values, list) else []
+                    tab = str(item.get("range", "")).split("!")[0].strip("'").strip()
+                    if tab in result:
+                        result[tab] = values
+                return result
+
+
+            def extract_bot_user_id(value):
+                """Get Bot Info出力（リスト包み/JSON文字列にも対応）からボット自身のuserIdを取り出す."""
+                if isinstance(value, list) and value and isinstance(value[0], dict):
+                    value = value[0]
+                if isinstance(value, dict):
+                    return str(value.get("userId", "") or "").strip()
+                if isinstance(value, str):
+                    text = value.strip()
+                    if text.startswith("{") or text.startswith("["):
+                        try:
+                            return extract_bot_user_id(json.loads(text))
+                        except Exception:
+                            return ""
+                    return text
+                return ""
+
+
+            def parse_dt(text):
+                for fmt in ("%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+                    try:
+                        return datetime.strptime((text or "").strip(), fmt)
+                    except ValueError:
+                        pass
+                return None
+
+
+            def freq_days(row):
+                try:
+                    days = int(float(cell(row, 3)))
+                except (TypeError, ValueError):
+                    return DEFAULT_FREQ_DAYS
+                return days if days > 0 else DEFAULT_FREQ_DAYS
+
+
+            def is_enabled(row):
+                return cell(row, 2).lower() not in ("false", "0", "no", "off", "無効")
+
+
+            def main(sheets_raw, segment_filter, dry_run, bot_user_id=""):
+                is_dry = str(dry_run).strip().lower() in ("true", "1", "yes", "on")
+                parsed = split_value_ranges(sheets_raw)
+                master_rows = parsed["master"]
+                campaign_rows = parsed["campaign"]
+                history_rows = parsed["history"]
+
+                # settings: Discordカードの文言（key/valueペア。無くても既定値で動く）
+                settings = {}
+                for row in parsed["settings"]:
+                    key = cell(row, 0)
+                    if key:
+                        settings[key] = cell(row, 1)
+                settings_json = json.dumps(settings, ensure_ascii=False)
+
+                now = datetime.now(JST).replace(tzinfo=None)
+
+                # segment -> 文面テンプレート（有効な最初の行を採用）
+                templates = {}
+                for row in campaign_rows:
+                    segment = cell(row, 0)
+                    template = cell(row, 1)
+                    if segment and template and is_enabled(row) and segment not in templates:
+                        templates[segment] = template
+
+                # user_id -> 最終成功送信日時（失敗は数えない＝翌回リトライ）
+                last_sent = {}
+                for row in history_rows:
+                    if cell(row, 3).lower() != "success":
+                        continue
+                    user_id = cell(row, 1)
+                    sent_at = parse_dt(cell(row, 0))
+                    if not user_id or sent_at is None:
+                        continue
+                    if user_id not in last_sent or sent_at > last_sent[user_id]:
+                        last_sent[user_id] = sent_at
+
+                wanted = (segment_filter or "").strip()
+                bot_id = extract_bot_user_id(bot_user_id)
+
+                planned = []
+                seen = set()
+                skipped_recent = 0
+                skipped_no_template = 0
+                skipped_duplicate = 0
+                skipped_filter = 0
+                skipped_bad_id = 0
+                skipped_bot = 0
+
+                for row in master_rows:
+                    user_id = cell(row, 0)
+                    if not user_id:
+                        continue
+                    if bot_id and user_id.lower() == bot_id.lower():
+                        # 宛先がボット自身（Get Bot InfoのuserId等）→ LINEが送信拒否するため除外
+                        skipped_bot += 1
+                        continue
+
+                    segment = cell(row, 2)
+                    if wanted and segment != wanted:
+                        skipped_filter += 1
+                        continue
+                    dedup_key = (user_id, segment)
+                    if dedup_key in seen:
+                        # 同一実行内の「同一UID×同一セグメント」のみ重複とみなす
+                        # （UIDが同じでもsegmentが違えば別文面を届ける。ユーザー確定仕様）
+                        skipped_duplicate += 1
+                        continue
+                    seen.add(dedup_key)
+                    if user_id[:1].upper() not in ("U", "C", "R"):
+                        skipped_bad_id += 1
+                        continue
+
+                    template = templates.get(segment)
+                    if not template:
+                        skipped_no_template += 1
+                        continue
+
+                    days = freq_days(row)
+                    last = last_sent.get(user_id)
+                    elapsed_days = -1
+                    if last is not None:
+                        elapsed_seconds = (now - last).total_seconds()
+                        if elapsed_seconds < days * 86400:
+                            skipped_recent += 1
+                            continue
+                        elapsed_days = int(elapsed_seconds // 86400)
+
+                    name = cell(row, 1) or DEFAULT_NAME
+                    text = template.replace("{display_name}", name)
+                    text = text.replace("{context}", cell(row, 4))
+
+                    planned.append(
+                        {
+                            "user_id": user_id,
+                            "segment": segment,
+                            "display_name": name,
+                            "message_text": text,
+                            "elapsed_days": elapsed_days,
+                        }
+                    )
+
+                planned.sort(key=lambda item: (item["elapsed_days"], item["user_id"]))
+                overflow = len(planned) - MAX_SEND_PER_RUN
+                if overflow < 0:
+                    overflow = 0
+                planned = planned[:MAX_SEND_PER_RUN]
+
+                counts = {}
+                for item in planned:
+                    counts[item["segment"]] = counts.get(item["segment"], 0) + 1
+                breakdown = " / ".join("%s %d" % (key, counts[key]) for key in sorted(counts)) or "なし"
+
+                parts = ["計画: 送信対象 %d件（%s）" % (len(planned), breakdown)]
+                if overflow:
+                    parts.append("上限超過で翌回へ繰越 %d件" % overflow)
+                skips = ["最近送信済 %d" % skipped_recent, "文面未定義 %d" % skipped_no_template]
+                if skipped_duplicate:
+                    skips.append("重複 %d" % skipped_duplicate)
+                if skipped_filter:
+                    skips.append("セグメント外 %d" % skipped_filter)
+                if skipped_bad_id:
+                    skips.append("不正ID %d" % skipped_bad_id)
+                if skipped_bot:
+                    skips.append("ボット自身のID %d" % skipped_bot)
+                parts.append("スキップ: " + "・".join(skips))
+                if is_dry:
+                    parts.append("【ドライラン: 送信しません】")
+
+                return {
+                    "planned": planned,
+                    "send_tasks": [] if is_dry else list(planned),
+                    "planned_count": len(planned),
+                    "overflow_count": overflow,
+                    "skipped_recent": skipped_recent,
+                    "skipped_no_template": skipped_no_template,
+                    "skipped_bot": skipped_bot,
+                    "history_data_rows": len(history_rows),
+                    "settings_json": settings_json,
+                    "plan_summary": "\n".join(parts),
+                }
+          variables:
+            - variable: sheets_raw
+              value_selector:
+                - tool_sheets_get
+                - json
+            - variable: segment_filter
+              value_selector:
+                - start
+                - segment_filter
+            - variable: dry_run
+              value_selector:
+                - start
+                - dry_run
+            - variable: bot_user_id
+              value_selector:
+                - tool_botinfo
+                - json
+          outputs:
+            planned:
+              type: array[object]
+              children: null
+            send_tasks:
+              type: array[object]
+              children: null
+            planned_count:
+              type: number
+              children: null
+            overflow_count:
+              type: number
+              children: null
+            skipped_recent:
+              type: number
+              children: null
+            skipped_no_template:
+              type: number
+              children: null
+            skipped_bot:
+              type: number
+              children: null
+            history_data_rows:
+              type: number
+              children: null
+            plan_summary:
+              type: string
+              children: null
+            settings_json:
+              type: string
+              children: null
+        position:
+          x: 720
+          y: 260
+        positionAbsolute:
+          x: 720
+          y: 260
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 100
+        selected: false
+      - id: iter_send
+        type: custom
+        data:
+          type: iteration
+          title: 送信ループ
+          desc: 対象者ごとにLINEへ送信（1件失敗しても継続）
+          selected: false
+          iterator_selector:
+            - code_plan
+            - send_tasks
+          iterator_input_type: array[object]
+          output_selector:
+            - tool_push
+            - json
+          output_type: array[object]
+          is_parallel: false
+          parallel_nums: 10
+          error_handle_mode: continue-on-error
+          flatten_output: false
+          start_node_id: iter_send_start
+        position:
+          x: 1040
+          y: 240
+        positionAbsolute:
+          x: 1040
+          y: 240
+        sourcePosition: right
+        targetPosition: left
+        width: 420
+        height: 190
+        zIndex: 1
+        selected: false
+      - id: iter_send_start
+        parentId: iter_send
+        type: custom-iteration-start
+        draggable: false
+        selectable: false
+        data:
+          type: iteration-start
+          title: ''
+          isInIteration: true
+        position:
+          x: 24
+          y: 72
+        positionAbsolute:
+          x: 1064
+          y: 312
+        sourcePosition: right
+        targetPosition: left
+        width: 44
+        height: 48
+        zIndex: 1002
+      - id: tool_push
+        parentId: iter_send
+        type: custom
+        data:
+          type: tool
+          title: LINE送信
+          desc: 対象者へ1件ずつプッシュ送信
+          isInIteration: true
+          isInLoop: false
+          iteration_id: iter_send
+          selected: false
+          provider_id: shineos/line-message-sender/line-message-sender
+          provider_name: shineos/line-message-sender/line-message-sender
+          provider_type: builtin
+          plugin_unique_identifier: 'shineos/line-message-sender:0.2.0@9c092a784ae4882ea0f952f98cd818cfb638950ccc368357c6380932d0d4ddb8' 
+          tool_name: send_push_message
+          tool_label: Send Push Message
+          tool_description: Send a text message to a specific LINE user, group, or room via push message.
+          tool_parameters:
+            to:
+              type: mixed
+              value: '{{#iter_send.item.user_id#}}'
+            message_text:
+              type: mixed
+              value: '{{#iter_send.item.message_text#}}'
+          tool_configurations: {}
+          tool_node_version: '2'
+          plugin_id: shineos/line-message-sender
+          is_team_authorization: true
+          paramSchemas:
+            - auto_generate: false
+              form: llm
+              human_description:
+                en_US: "LINE ID of the recipient: user ID (starts with 'U'), group ID (starts with 'C'), or room ID (starts with 'R')."
+                ja_JP: 送信先のLINE ID。ユーザーID（Uで始まる）、グループID（Cで始まる）、トークルームID（Rで始まる）のいずれか。
+              label:
+                en_US: Recipient ID
+                ja_JP: 宛先ID
+              llm_description: The LINE ID of the message recipient.
+              max: null
+              min: null
+              name: to
+              options: []
+              placeholder: null
+              required: true
+              type: string
+            - auto_generate: false
+              form: llm
+              human_description:
+                en_US: Text to send (up to 5,000 characters).
+                ja_JP: 送信するテキスト（最大5,000文字）。
+              label:
+                en_US: Message text
+                ja_JP: メッセージ本文
+              llm_description: The text message to send to the recipient, up to 5,000 characters.
+              max: null
+              min: null
+              name: message_text
+              options: []
+              placeholder: null
+              required: true
+              type: string
+          output_schema: null
+          params: {}
+        position:
+          x: 128
+          y: 68
+        positionAbsolute:
+          x: 1168
+          y: 308
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 64
+        zIndex: 1002
+      - id: code_report
+        type: custom
+        data:
+          type: code
+          title: 結果集計と履歴生成
+          desc: 送信結果を集計し、batch_update用の追記範囲・管理レポートを生成
+          selected: false
+          code_language: python3
+          code: |
+            """Codeノード「結果集計と履歴行生成」（google_sheetsプラグイン版）の正本ロジック.
+
+            入力（Difyのvariables）:
+                planned             : gsheets_plan の planned（送信対象の一覧）
+                results             : Iterationの出力（失敗した要素は null）
+                dry_run             : 開始ノードの入力
+                plan_summary        : gsheets_plan の計画サマリ
+                discord_webhook_url : 環境変数 DISCORD_WEBHOOK_URL
+                admin_line_id       : 環境変数 ADMIN_LINE_ID
+                history_data_rows   : gsheets_plan の history_data_rows（既存の履歴データ行数）
+            出力:
+                append_body_json    : batch_update 用のdata引数（[{"range": ..., "values": ...}]）
+                history_count / success_count / failed_count / report_text /
+                line_enabled / discord_enabled / discord_url / discord_body_json
+            """
+
+            import json
+            from datetime import datetime, timedelta, timezone
+
+            JST = timezone(timedelta(hours=9))
+            ALLOWED_WEBHOOK_HOSTS = ("discord.com", "discordapp.com")
+            HISTORY_TAB = "history"
+            HISTORY_COLUMNS = 6  # A〜F
+
+            # Discord埋め込み（embed）の装飾
+            SITE_URL = "https://shineos.com/"
+
+            # Discordカード文言の既定値（settingsタブで上書き可能）
+            DEFAULT_SETTINGS = {
+                "report_title": "LINE配信レポート",
+                "report_title_dry": "LINE配信レポート（dry-run）",
+                "label_mode": "実行モード",
+                "value_mode_real": "本番配信",
+                "value_mode_dry": "ドライラン（送信なし）",
+                "label_result": "送信結果",
+                "value_result": "成功 {success} / 失敗 {failed}",
+                "value_result_dry": "送信なし（計画のみ）",
+                "label_count": "送信対象",
+                "value_count": "{count}件",
+                "label_breakdown": "成功内訳",
+                "label_failed_ids": "失敗ID（次回自動リトライ）",
+                "footer_text": "Power by Shineos Inc.",
+                "footer_url": "https://shineos.com/",
+            }
+
+
+            def get_setting(settings, key):
+                """settingsタブの値を取り出す（未設定・https以外のURLは既定値へフォールバック）."""
+                value = str(settings.get(key, "") or "").strip()
+                if not value:
+                    return DEFAULT_SETTINGS[key]
+                if key == "footer_url" and not value.lower().startswith("https://"):
+                    return DEFAULT_SETTINGS[key]
+                return value
+            COLOR_DRY_RUN = 3447003   # 青
+            COLOR_SUCCESS = 3066993   # 緑
+            COLOR_PARTIAL = 15105570  # オレンジ（失敗あり）
+
+
+            def as_dict(value):
+                """ツール出力をdictへ正規化する（リスト包み・JSON文字列にも耐える）.
+
+                実機確認: プラグインのjson出力は create_json_message 1件でも [{...}] に
+                ラップされて返るため、list の場合は先頭要素を取り出す。
+                """
+                if isinstance(value, dict):
+                    return value
+                if isinstance(value, list) and value and isinstance(value[0], dict):
+                    return value[0]
+                if isinstance(value, str):
+                    stripped = value.strip()
+                    if stripped.startswith("{") or stripped.startswith("["):
+                        try:
+                            return as_dict(json.loads(stripped))
+                        except Exception:
+                            return {}
+                return {}
+
+
+            def safe_webhook_url(raw):
+                """Discord Webhookのみ許可する（https限定・ホスト検証でSSRFを防ぐ）."""
+                url = (raw or "").strip()
+                if not url.lower().startswith("https://"):
+                    return ""
+                host = url[len("https://"):].split("/", 1)[0].split("?", 1)[0].lower()
+                if "@" in host:
+                    return ""
+                host = host.split(":", 1)[0]
+                for allowed in ALLOWED_WEBHOOK_HOSTS:
+                    if host == allowed or host.endswith("." + allowed):
+                        return url
+                return ""
+
+
+            def safe_line_id(raw):
+                """LINE宛先ID（U/C/R始まり）のみ許可する。空や不正値は無効扱い."""
+                value = (raw or "").strip()
+                if value and value[:1].upper() in ("U", "C", "R"):
+                    return value
+                return ""
+
+
+            def format_description(plan_summary):
+                """plan_summaryの各行をDiscord向けに整形する（スキップ行は<>で囲む）."""
+                lines = []
+                for line in (plan_summary or "").splitlines():
+                    if line.startswith("スキップ:"):
+                        line = "<" + line + ">"
+                    lines.append(line)
+                return "\n\n".join(lines)[:2000]
+
+
+            def build_discord_payload(is_dry, plan_summary, planned_count, success, failed, segment_counts, failed_ids, settings):
+                """Discord Webhook用の埋め込み（embed）ペイロードを組み立てる.
+
+                文言ラベルはsettingsタブ（key/value）で上書き可能。未設定のキーは既定値を使用。
+                """
+                if is_dry:
+                    color = COLOR_DRY_RUN
+                    title = get_setting(settings, "report_title_dry")
+                    result_value = get_setting(settings, "value_result_dry")
+                    breakdown_value = "なし"
+                else:
+                    color = COLOR_SUCCESS if failed == 0 else COLOR_PARTIAL
+                    title = get_setting(settings, "report_title")
+                    result_fmt = get_setting(settings, "value_result")
+                    try:
+                        result_value = result_fmt.format(success=success, failed=failed)
+                    except (KeyError, IndexError, ValueError):
+                        result_value = DEFAULT_SETTINGS["value_result"].format(success=success, failed=failed)
+                    breakdown_value = (
+                        " / ".join("%s %d" % (key, segment_counts[key]) for key in sorted(segment_counts)) or "なし"
+                    )
+
+                count_fmt = get_setting(settings, "value_count")
+                try:
+                    count_value = count_fmt.format(count=planned_count)
+                except (KeyError, IndexError, ValueError):
+                    count_value = DEFAULT_SETTINGS["value_count"].format(count=planned_count)
+
+                fields = [
+                    {"name": get_setting(settings, "label_mode"), "value": get_setting(settings, "value_mode_dry") if is_dry else get_setting(settings, "value_mode_real"), "inline": True},
+                    {"name": get_setting(settings, "label_result"), "value": result_value, "inline": True},
+                    {"name": get_setting(settings, "label_count"), "value": count_value, "inline": True},
+                ]
+                if not is_dry:
+                    fields.append({"name": get_setting(settings, "label_breakdown"), "value": breakdown_value, "inline": True})
+                    if failed_ids:
+                        preview = ", ".join(failed_ids[:10])
+                        if len(failed_ids) > 10:
+                            preview += " 他%d件" % (len(failed_ids) - 10)
+                        fields.append({"name": get_setting(settings, "label_failed_ids"), "value": preview[:1000], "inline": False})
+
+                # リンク行（dry-run/本番とも表示。ユーザー確定仕様）
+                link_text = get_setting(settings, "footer_text")
+                link_url = get_setting(settings, "footer_url")
+                fields.append({"name": "\u200b", "value": "[%s](%s)" % (link_text, link_url), "inline": False})
+
+                embed = {
+                    "title": title,
+                    "color": color,
+                    "description": format_description(plan_summary),
+                    "fields": fields,
+                }
+                return {"embeds": [embed]}
+
+
+            def main(planned, results, dry_run, plan_summary, discord_webhook_url, admin_line_id="", history_data_rows=0, planned_count=0, settings_json=""):
+                is_dry = str(dry_run).strip().lower() in ("true", "1", "yes", "on")
+                tasks = planned if isinstance(planned, list) else []
+                outputs = results if isinstance(results, list) else []
+                try:
+                    data_rows = int(history_data_rows)
+                except (TypeError, ValueError):
+                    data_rows = 0
+                if data_rows < 0:
+                    data_rows = 0
+                now_label = datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S")
+
+                rows = []
+                success = 0
+                failed = 0
+                failed_ids = []
+                segment_counts = {}
+
+                if not is_dry:
+                    for index, task in enumerate(tasks):
+                        task = task if isinstance(task, dict) else {}
+                        user_id = str(task.get("user_id", "") or "")
+                        segment = str(task.get("segment", "") or "")
+                        text = str(task.get("message_text", "") or "")
+
+                        # Iterationは失敗時にnullを返す（continue-on-error）
+                        payload = as_dict(outputs[index]) if index < len(outputs) else {}
+                        if str(payload.get("status", "")).lower() == "sent":
+                            success += 1
+                            segment_counts[segment] = segment_counts.get(segment, 0) + 1
+                            rows.append(
+                                [now_label, user_id, segment, "success", text, str(payload.get("request_id", "") or "")]
+                            )
+                        else:
+                            failed += 1
+                            failed_ids.append(user_id)
+                            rows.append([now_label, user_id, segment, "failed", text, ""])
+
+                if is_dry:
+                    report = (
+                        "【LINE配信 dry-run】" + now_label + "\n"
+                        + (plan_summary or "") + "\n送信は行っていません。"
+                    )
+                else:
+                    breakdown = " / ".join("%s %d" % (key, segment_counts[key]) for key in sorted(segment_counts)) or "なし"
+                    report = (
+                        "【LINE配信レポート】" + now_label + "\n"
+                        + (plan_summary or "") + "\n"
+                        + "結果: 成功 %d / 失敗 %d\n" % (success, failed)
+                        + "成功内訳: " + breakdown
+                    )
+                    if failed_ids:
+                        preview = ", ".join(failed_ids[:5])
+                        more = " 他%d件" % (len(failed_ids) - 5) if len(failed_ids) > 5 else ""
+                        report += "\n失敗ID: " + preview + more + "（次回自動リトライ）"
+
+                webhook = safe_webhook_url(discord_webhook_url)
+                settings = as_dict(settings_json)
+                discord_payload = build_discord_payload(is_dry, plan_summary, planned_count, success, failed, segment_counts, failed_ids, settings)
+
+                # batch_update用: 履歴はヘッダ(1行) + 既存データ行の次の行から追記する
+                append_payload = []
+                if rows:
+                    start_row = data_rows + 2  # 1行目=ヘッダ
+                    end_row = start_row + len(rows) - 1
+                    append_payload = [
+                        {
+                            "range": "%s!A%d:%s%d" % (HISTORY_TAB, start_row, chr(ord("A") + HISTORY_COLUMNS - 1), end_row),
+                            "values": rows,
+                        }
+                    ]
+
+                return {
+                    "append_body_json": json.dumps(append_payload, ensure_ascii=False) if append_payload else "",
+                    "history_count": len(rows),
+                    "success_count": success,
+                    "failed_count": failed,
+                    "report_text": report,
+                    "line_enabled": 1 if safe_line_id(admin_line_id) else 0,
+                    "discord_enabled": 1 if webhook else 0,
+                    "discord_url": webhook,
+                    "discord_body_json": json.dumps(discord_payload, ensure_ascii=False),
+                }
+          variables:
+            - variable: planned
+              value_selector:
+                - code_plan
+                - planned
+            - variable: results
+              value_selector:
+                - iter_send
+                - output
+            - variable: dry_run
+              value_selector:
+                - start
+                - dry_run
+            - variable: plan_summary
+              value_selector:
+                - code_plan
+                - plan_summary
+            - variable: discord_webhook_url
+              value_selector:
+                - env
+                - DISCORD_WEBHOOK_URL
+            - variable: admin_line_id
+              value_selector:
+                - env
+                - ADMIN_LINE_ID
+            - variable: history_data_rows
+              value_selector:
+                - code_plan
+                - history_data_rows
+            - variable: planned_count
+              value_selector:
+                - code_plan
+                - planned_count
+            - variable: settings_json
+              value_selector:
+                - code_plan
+                - settings_json
+          outputs:
+            append_body_json:
+              type: string
+              children: null
+            history_count:
+              type: number
+              children: null
+            success_count:
+              type: number
+              children: null
+            failed_count:
+              type: number
+              children: null
+            report_text:
+              type: string
+              children: null
+            line_enabled:
+              type: number
+              children: null
+            discord_enabled:
+              type: number
+              children: null
+            discord_url:
+              type: string
+              children: null
+            discord_body_json:
+              type: string
+              children: null
+        position:
+          x: 1520
+          y: 260
+        positionAbsolute:
+          x: 1520
+          y: 260
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 100
+        selected: false
+      - id: gate_append
+        type: custom
+        data:
+          type: if-else
+          title: 履歴追記するか
+          desc: 送信実績がある場合のみ履歴を追記
+          selected: false
+          cases:
+            - id: has_rows
+              case_id: has_rows
+              logical_operator: and
+              conditions:
+                - id: cond-has-rows
+                  variable_selector:
+                    - code_report
+                    - history_count
+                  comparison_operator: '>'
+                  value: '0'
+                  varType: number
+        position:
+          x: 1840
+          y: 280
+        positionAbsolute:
+          x: 1840
+          y: 280
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 126
+        selected: false
+      - id: tool_sheets_update
+        type: custom
+        data:
+          type: tool
+          title: 履歴追記
+          desc: batch_updateで履歴シートへ追記範囲を一括書き込み
+          selected: false
+          provider_id: omluc/google_sheets/google_sheets
+          provider_name: omluc/google_sheets/google_sheets
+          provider_type: builtin
+          plugin_unique_identifier: 'omluc/google_sheets:0.0.2@17f06eaa1d905595e1a76460e7249707a722142353d551cf14aed3d8517c134f' 
+          tool_name: batch_update
+          tool_label: Batch Update
+          tool_description: update data in multiple ranges within a Google Sheet.
+          tool_parameters:
+            spreadsheet_id:
+              type: mixed
+              value: '{{#env.SPREADSHEET_ID#}}'
+            data:
+              type: mixed
+              value: '{{#code_report.append_body_json#}}'
+            value_input_option:
+              type: mixed
+              value: USER_ENTERED
+          tool_configurations: {}
+          tool_node_version: '2'
+          plugin_id: omluc/google_sheets
+          is_team_authorization: true
+          paramSchemas:
+            - auto_generate: false
+              form: llm
+              human_description:
+                en_US: The ID of the Google Sheet (found in the URL)
+                ja_JP: GoogleシートのID（URLに含まれる）
+              label:
+                en_US: Spreadsheet ID
+                ja_JP: スプレッドシートID
+              llm_description: The ID of the Google Sheet (found in the URL)
+              max: null
+              min: null
+              name: spreadsheet_id
+              options: []
+              placeholder: null
+              required: true
+              type: string
+            - auto_generate: false
+              form: llm
+              human_description:
+                en_US: JSON array of objects with 'range' and 'values'
+                ja_JP: 範囲と値のJSON配列
+              label:
+                en_US: Data
+                ja_JP: データ
+              llm_description: JSON array of objects, each with 'range' and 'values'.
+              max: null
+              min: null
+              name: data
+              options: []
+              placeholder: null
+              required: true
+              type: string
+          output_schema: null
+          params: {}
+        position:
+          x: 2160
+          y: 180
+        positionAbsolute:
+          x: 2160
+          y: 180
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 116
+        selected: false
+      - id: gate_line
+        type: custom
+        data:
+          type: if-else
+          title: LINE管理報告するか
+          desc: ADMIN_LINE_IDが有効な場合のみ通知（未設定ならLINE通知をスキップ）
+          selected: false
+          cases:
+            - id: has_line
+              case_id: has_line
+              logical_operator: and
+              conditions:
+                - id: cond-has-line
+                  variable_selector:
+                    - code_report
+                    - line_enabled
+                  comparison_operator: '='
+                  value: '1'
+                  varType: number
+        position:
+          x: 2480
+          y: 280
+        positionAbsolute:
+          x: 2480
+          y: 280
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 126
+        selected: false
+      - id: tool_admin
+        type: custom
+        data:
+          type: tool
+          title: 管理レポート（LINE）
+          desc: 管理者のLINEへ配信結果を通知
+          selected: false
+          provider_id: shineos/line-message-sender/line-message-sender
+          provider_name: shineos/line-message-sender/line-message-sender
+          provider_type: builtin
+          plugin_unique_identifier: 'shineos/line-message-sender:0.2.0@9c092a784ae4882ea0f952f98cd818cfb638950ccc368357c6380932d0d4ddb8' 
+          tool_name: send_push_message
+          tool_label: Send Push Message
+          tool_description: Send a text message to a specific LINE user, group, or room via push message.
+          tool_parameters:
+            to:
+              type: mixed
+              value: '{{#env.ADMIN_LINE_ID#}}'
+            message_text:
+              type: mixed
+              value: '{{#code_report.report_text#}}'
+          tool_configurations: {}
+          tool_node_version: '2'
+          plugin_id: shineos/line-message-sender
+          is_team_authorization: true
+          paramSchemas:
+            - auto_generate: false
+              form: llm
+              human_description:
+                en_US: "LINE ID of the recipient."
+                ja_JP: 送信先のLINE ID。
+              label:
+                en_US: Recipient ID
+                ja_JP: 宛先ID
+              llm_description: The LINE ID of the message recipient.
+              max: null
+              min: null
+              name: to
+              options: []
+              placeholder: null
+              required: true
+              type: string
+            - auto_generate: false
+              form: llm
+              human_description:
+                en_US: Text to send (up to 5,000 characters).
+                ja_JP: 送信するテキスト（最大5,000文字）。
+              label:
+                en_US: Message text
+                ja_JP: メッセージ本文
+              llm_description: The text message to send to the recipient.
+              max: null
+              min: null
+              name: message_text
+              options: []
+              placeholder: null
+              required: true
+              type: string
+          output_schema: null
+          params: {}
+        position:
+          x: 2800
+          y: 180
+        positionAbsolute:
+          x: 2800
+          y: 180
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 116
+        selected: false
+      - id: gate_discord
+        type: custom
+        data:
+          type: if-else
+          title: Discord通知するか
+          desc: DISCORD_WEBHOOK_URLが有効な場合のみ通知
+          selected: false
+          cases:
+            - id: has_webhook
+              case_id: has_webhook
+              logical_operator: and
+              conditions:
+                - id: cond-has-webhook
+                  variable_selector:
+                    - code_report
+                    - discord_enabled
+                  comparison_operator: '='
+                  value: '1'
+                  varType: number
+        position:
+          x: 3120
+          y: 280
+        positionAbsolute:
+          x: 3120
+          y: 280
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 126
+        selected: false
+      - id: http_discord
+        type: custom
+        data:
+          type: http-request
+          title: Discord通知
+          desc: 管理レポートをDiscord WebhookへPOST（ホスト検証済みURLのみ）
+          selected: false
+          method: post
+          url: '{{#code_report.discord_url#}}'
+          headers: 'Content-Type: application/json'
+          params: ''
+          body:
+            type: raw-text
+            data:
+              - id: discord-body-1
+                type: text
+                value: '{{#code_report.discord_body_json#}}'
+          authorization:
+            type: no-auth
+            config: null
+          timeout:
+            connect: 10
+            read: 20
+            write: 10
+          retry_config:
+            retry_enabled: true
+            max_retries: 2
+            retry_interval: 2000
+          variables: []
+          ssl_verify: true
+        position:
+          x: 3440
+          y: 380
+        positionAbsolute:
+          x: 3440
+          y: 380
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 116
+        selected: false
+      - id: end
+        type: custom
+        data:
+          type: end
+          title: 終了
+          desc: ''
+          selected: false
+          outputs:
+            - variable: report
+              value_selector:
+                - code_report
+                - report_text
+              value_type: string
+            - variable: history_count
+              value_selector:
+                - code_report
+                - history_count
+              value_type: number
+            - variable: success_count
+              value_selector:
+                - code_report
+                - success_count
+              value_type: number
+            - variable: failed_count
+              value_selector:
+                - code_report
+                - failed_count
+              value_type: number
+        position:
+          x: 3760
+          y: 280
+        positionAbsolute:
+          x: 3760
+          y: 280
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 90
+        selected: false
+    edges:
+      - id: start-source-tool_sheets_get-target
+        source: start
+        sourceHandle: source
+        target: tool_sheets_get
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: start
+          targetType: tool
+          isInIteration: false
+          isInLoop: false
+      - id: tool_sheets_get-source-tool_botinfo-target
+        source: tool_sheets_get
+        sourceHandle: source
+        target: tool_botinfo
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: tool
+          targetType: tool
+          isInIteration: false
+          isInLoop: false
+      - id: tool_botinfo-source-code_plan-target
+        source: tool_botinfo
+        sourceHandle: source
+        target: code_plan
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: tool
+          targetType: code
+          isInIteration: false
+          isInLoop: false
+
+      - id: code_plan-source-iter_send-target
+        source: code_plan
+        sourceHandle: source
+        target: iter_send
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: code
+          targetType: iteration
+          isInIteration: false
+          isInLoop: false
+      - id: iter_send_start-source-tool_push-target
+        source: iter_send_start
+        sourceHandle: source
+        target: tool_push
+        targetHandle: target
+        type: custom
+        zIndex: 1002
+        data:
+          sourceType: iteration-start
+          targetType: tool
+          isInIteration: true
+          isInLoop: false
+          iteration_id: iter_send
+      - id: iter_send-source-code_report-target
+        source: iter_send
+        sourceHandle: source
+        target: code_report
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: iteration
+          targetType: code
+          isInIteration: false
+          isInLoop: false
+      - id: code_report-source-gate_append-target
+        source: code_report
+        sourceHandle: source
+        target: gate_append
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: code
+          targetType: if-else
+          isInIteration: false
+          isInLoop: false
+      - id: gate_append-has_rows-tool_sheets_update-target
+        source: gate_append
+        sourceHandle: has_rows
+        target: tool_sheets_update
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: if-else
+          targetType: tool
+          isInIteration: false
+          isInLoop: false
+      - id: tool_sheets_update-source-gate_line-target
+        source: tool_sheets_update
+        sourceHandle: source
+        target: gate_line
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: tool
+          targetType: if-else
+          isInIteration: false
+          isInLoop: false
+      - id: gate_append-false-gate_line-target
+        source: gate_append
+        sourceHandle: 'false'
+        target: gate_line
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: if-else
+          targetType: if-else
+          isInIteration: false
+          isInLoop: false
+      - id: gate_line-has_line-tool_admin-target
+        source: gate_line
+        sourceHandle: has_line
+        target: tool_admin
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: if-else
+          targetType: tool
+          isInIteration: false
+          isInLoop: false
+      - id: gate_line-false-gate_discord-target
+        source: gate_line
+        sourceHandle: 'false'
+        target: gate_discord
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: if-else
+          targetType: if-else
+          isInIteration: false
+          isInLoop: false
+      - id: tool_admin-source-gate_discord-target
+        source: tool_admin
+        sourceHandle: source
+        target: gate_discord
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: tool
+          targetType: if-else
+          isInIteration: false
+          isInLoop: false
+      - id: gate_discord-has_webhook-http_discord-target
+        source: gate_discord
+        sourceHandle: has_webhook
+        target: http_discord
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: if-else
+          targetType: http-request
+          isInIteration: false
+          isInLoop: false
+      - id: http_discord-source-end-target
+        source: http_discord
+        sourceHandle: source
+        target: end
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: http-request
+          targetType: end
+          isInIteration: false
+          isInLoop: false
+      - id: gate_discord-false-end-target
+        source: gate_discord
+        sourceHandle: 'false'
+        target: end
+        targetHandle: target
+        type: custom
+        data:
+          sourceType: if-else
+          targetType: end
+          isInIteration: false
+          isInLoop: false
+    viewport:
+      x: 0
+      y: 0
+      zoom: 0.5

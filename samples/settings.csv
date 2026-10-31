@@ -1,0 +1,15 @@
+key,value
+report_title,LINE配信レポート
+report_title_dry,LINE配信レポート（dry-run）
+label_mode,実行モード
+value_mode_real,本番配信
+value_mode_dry,ドライラン（送信なし）
+label_result,送信結果
+value_result,成功 {success} / 失敗 {failed}
+value_result_dry,送信なし（計画のみ）
+label_count,送信対象
+value_count,{count}件
+label_breakdown,成功内訳
+label_failed_ids,失敗ID（次回自動リトライ）
+footer_text,Power by Shineos Inc.
+footer_url,https://shineos.com/
